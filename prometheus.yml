@@ -1,0 +1,9 @@
+# ── Prometheus Scraper Configuration ──────────────────────────────────────────
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: 'roadai-backend'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: ['backend:8000']

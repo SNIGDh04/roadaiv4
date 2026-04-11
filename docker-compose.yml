@@ -1,0 +1,34 @@
+version: "3.9"
+
+services:
+  # ── RoadAI Monolith (Backend + Vanilla Frontend) ──────────────
+  app:
+    build: .
+    image: roadai-v2:latest
+    ports:
+      - "8000:10000"
+    volumes:
+      - ./models:/app/models
+      - ./uploads:/app/uploads
+      - ./outputs:/app/outputs
+      - ./config:/app/config
+    environment:
+      - MONGODB_URL=mongodb://mongodb:27017/roadai
+      - JWT_SECRET=local_secret_unsecure
+      - CORS_ORIGINS=*
+    depends_on:
+      - mongodb
+    restart: always
+
+  # ── Local MongoDB (For Local Dev/Testing) ────────────────────
+  mongodb:
+    image: mongo:latest
+    container_name: roadai-mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    restart: always
+
+volumes:
+  mongodb_data:

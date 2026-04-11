@@ -1,0 +1,13 @@
+[project]
+name = "roadai"
+version = "4.0.0"
+description = "Road Intelligence Platform"
+requires-python = ">=3.11"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["backend*"]
+
+[tool.pyre]
+source_directories = ["backend"]
+search_path = [".venv/lib/python3.11/site-packages"]

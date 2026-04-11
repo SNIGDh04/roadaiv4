@@ -1,0 +1,28 @@
+services:
+  - type: web
+    name: roadai-enterprise-api
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn backend.main:app --host 0.0.0.0 --port $PORT --workers 1
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.13.12
+      - key: MONGODB_URL
+        sync: false # Set this in Render Dashboard
+      - key: MONGODB_DB
+        value: roadai
+      - key: JWT_SECRET
+        generateValue: true
+      - key: CORS_ORIGINS
+        value: "*" # Update to your Netlify URL after deployment
+      - key: DEFECT_MODEL_PATH
+        value: models/custom/check_2.pt
+      - key: OBJECT_MODEL_PATH
+        value: models/candidates/yolov8n.pt
+    
+    # Optional: Health check to ensure zero-downtime deployment
+    healthCheckPath: /api/analysis/stats
+    
+    # Models are stored in /app/models relative to root
+    # For large models, consider Render Disk or external hosting
+    # but check_2.pt (6MB) is small enough for the repo.
