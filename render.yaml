@@ -11,6 +11,10 @@ services:
         sync: false # Set this in Render Dashboard
       - key: MONGODB_DB
         value: roadai
+      - key: MONGODB_TIMEOUT_MS
+        value: 30000
+      - key: MONGODB_TLS_VERIFY
+        value: "true"
       - key: JWT_SECRET
         generateValue: true
       - key: CORS_ORIGINS
