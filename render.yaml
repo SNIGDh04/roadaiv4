@@ -14,11 +14,13 @@ services:
       - key: MONGODB_TIMEOUT_MS
         value: 30000
       - key: MONGODB_TLS_VERIFY
+        value: "false"
+      - key: MONGODB_FORCE_TLS12
         value: "true"
       - key: JWT_SECRET
         generateValue: true
       - key: CORS_ORIGINS
-        value: "*" # Update to your Netlify URL after deployment
+        value: "http://localhost:5173,https://roadaiv4.netlify.app"
       - key: DEFECT_MODEL_PATH
         value: models/custom/check_2.pt
       - key: OBJECT_MODEL_PATH
