@@ -60,9 +60,8 @@ def _ensure_users():
 async def lifespan(app: FastAPI):
     logger.info("🚀 Starting ROADAI v2.0...")
     _ensure_dirs()
-    # Initialise DB and detect mode early
+    # Initialise DB and detect mode early (in background task to avoid blocking boot)
     from backend.db.database import get_db
-    await get_db()
 
     # Model registry + runtime selector
     from backend.core.model_registry   import ModelRegistry
@@ -83,6 +82,10 @@ async def lifespan(app: FastAPI):
         import asyncio
         try:
             logger.info("⚙️  Deep-Loading AI Components (Background)...")
+            
+            # Initialize DB connection in background
+            from backend.db.database import get_db
+            await get_db()
             
             # These imports are fast (just Python module loading)
             from backend.core.detection_engine     import DetectionEngine
@@ -205,6 +208,10 @@ for folder in ["uploads", "outputs"]:
 
 app.mount("/static", StaticFiles(directory="frontend"), name="static")
 
+@app.get("/ping", tags=["System"])
+async def ping():
+    return {"status": "pong", "timestamp": time.time()}
+
 
 @app.get("/api/health")
 async def health():
@@ -268,9 +275,5 @@ async def serve_spa(full_path: str):
 
 
 if __name__ == "__main__":
-    import uvicorn, os
-    uvicorn.run(
-        "backend.main:app",
-        host="0.0.0.0",
-        port=int(os.environ.get("PORT", 10000))
-    )
+    import uvicorn
+    uvicorn.run("backend.main:app", host="0.0.0.0", port=8000, reload=False, workers=1)
