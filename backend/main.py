@@ -134,14 +134,39 @@ app = FastAPI(
 )
 
 # CORS Configuration
-origins = os.environ.get("CORS_ORIGINS", "*").split(",")
+raw_origins = os.environ.get("CORS_ORIGINS", "")
+origins = []
+
+if raw_origins:
+    if raw_origins.startswith("["):
+        import json
+        try:
+            origins = json.loads(raw_origins)
+        except:
+             origins = [o.strip().strip('"').strip("'") for o in raw_origins.strip("[]").split(",") if o.strip()]
+    else:
+        origins = [o.strip() for o in raw_origins.split(",") if o.strip()]
+
+# Always allow these critical production and dev origins
+essential_origins = [
+    "https://roadaiv4.netlify.app",
+    "https://roadai-v4.netlify.app",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173"
+]
+for eo in essential_origins:
+    if eo not in origins:
+        origins.append(eo)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
+    allow_origins=origins if "*" not in origins else ["*"],
+    allow_credentials=True if "*" not in origins else False,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"],
 )
+
 
 # ── Mount routers ──────────────────────────────────────────────────────────────
 from backend.api.auth          import router as auth_router
