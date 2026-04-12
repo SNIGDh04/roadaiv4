@@ -12,7 +12,7 @@ services:
       - key: MONGODB_DB
         value: roadai
       - key: MONGODB_TIMEOUT_MS
-        value: 30000
+        value: 10000
       - key: MONGODB_TLS_VERIFY
         value: "false"
       - key: MONGODB_FORCE_TLS12
@@ -27,7 +27,7 @@ services:
         value: models/candidates/yolov8n.pt
     
     # Optional: Health check to ensure zero-downtime deployment
-    healthCheckPath: /api/analysis/stats
+    healthCheckPath: /api/health
     
     # Models are stored in /app/models relative to root
     # For large models, consider Render Disk or external hosting
