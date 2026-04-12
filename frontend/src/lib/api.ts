@@ -1,7 +1,7 @@
 export const API_URL = "https://roadaiv4.onrender.com";
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL 
-    ? import.meta.env.VITE_API_BASE_URL.replace(/\/$/, "") + "/api"
+const API_BASE = (import.meta as any).env?.VITE_API_BASE_URL 
+    ? (import.meta as any).env.VITE_API_BASE_URL.replace(/\/$/, "") + "/api"
     : `${API_URL}/api`;
 
 
