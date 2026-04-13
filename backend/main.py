@@ -174,7 +174,7 @@ for eo in essential_origins:
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins if "*" not in origins else ["*"],
-    allow_credentials=True,  # Mandatory for our auth flow
+    allow_credentials=True if "*" not in origins else False,
     allow_methods=["*"],
     allow_headers=["*"],
     expose_headers=["*"],
