@@ -122,8 +122,11 @@ async def lifespan(app: FastAPI):
             logger.error(f"❌ Critical Background Init Failed: {e}", exc_info=True)
 
     import asyncio
-    asyncio.create_task(_async_init())
-
+    init_task = asyncio.create_task(_async_init())
+    
+    # Optional: ensure task doesn't block server closure
+    app.state.init_task = init_task
+    
     logger.info("🌐 API Engine Online — accepting requests immediately ✅")
     yield
     logger.info("🛑 Shutting down ROADAI v4.0...")
@@ -160,11 +163,18 @@ essential_origins = [
 for eo in essential_origins:
     if eo not in origins:
         origins.append(eo)
+    # Also add versions with/without trailing slashes for safety
+    if eo.endswith("/"):
+        alt = eo[:-1]
+    else:
+        alt = eo + "/"
+    if alt not in origins:
+        origins.append(alt)
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins if "*" not in origins else ["*"],
-    allow_credentials=True if "*" not in origins else False,
+    allow_credentials=True,  # Mandatory for our auth flow
     allow_methods=["*"],
     allow_headers=["*"],
     expose_headers=["*"],
@@ -207,6 +217,13 @@ for folder in ["uploads", "outputs"]:
     app.mount(f"/{folder}", StaticFiles(directory=folder), name=folder)
 
 app.mount("/static", StaticFiles(directory="frontend"), name="static")
+
+@app.get("/", tags=["System"])
+@app.head("/", tags=["System"])
+async def root():
+    """Root endpoint to satisfy Render's default health check and HEAD requests."""
+    return {"status": "online", "message": "ROADAI v4.0 API Service", "timestamp": time.time()}
+
 
 @app.get("/ping", tags=["System"])
 async def ping():
