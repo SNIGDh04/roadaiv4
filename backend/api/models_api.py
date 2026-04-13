@@ -141,27 +141,24 @@ async def set_defect_model(
     token: dict = Depends(require_admin),
 ):
     """Override the defect detection model path at runtime."""
+    import asyncio
     from pathlib import Path as _P
     engine = getattr(request.app.state, "engine", None)
     selector = _get_selector(request)
     p = _P(req.target_path)
     if not p.exists():
         raise HTTPException(404, f"Model file not found: {req.target_path}")
-    # Update selector path
+    
+    # Update selector path (metadata)
     selector._defect_path  = str(p)
     selector._defect_ready = True
-    # Reload engine defect model
+    
+    # Reload engine defect model in background thread
     if engine:
-        try:
-            from ultralytics import YOLO
-            engine.model = YOLO(str(p))
-            engine.model.to("cpu")
-            engine._defect_sim = False
-            engine._defect_model_label = f"{p.name} (admin set)"
-            logger.info(f"Admin set defect model → {p}")
-        except Exception as e:
-            logger.error(f"ADMIN FAIL set-defect-model: {e}")
-            raise HTTPException(500, f"Model load failed (architectural mismatch?): {e}")
+        success = await asyncio.to_thread(engine.reload_defect_model, str(p))
+        if not success:
+             raise HTTPException(500, f"Background model load failed for {p.name}")
+             
     return {"message": f"Defect model set to {p.name}", "path": str(p), "ready": True}
 
 
@@ -172,12 +169,14 @@ async def set_object_model(
     token: dict = Depends(require_admin),
 ):
     """Override the object detection model path at runtime."""
+    import asyncio
     from pathlib import Path as _P
     engine = getattr(request.app.state, "engine", None)
     selector = _get_selector(request)
     # Allow "yolov8n.pt" shorthand (auto-download)
     use_path = req.target_path if req.target_path.endswith(".pt") and "/" not in req.target_path else req.target_path
     p = _P(use_path)
+    
     if p.exists():
         selector._object_path  = str(p)
         selector._object_ready = True
@@ -185,17 +184,12 @@ async def set_object_model(
         # Assume ultralytics will auto-download
         selector._object_path  = use_path
         selector._object_ready = True
+        
     if engine:
-        try:
-            from ultralytics import YOLO
-            engine.object_model = YOLO(use_path)
-            engine.object_model.to("cpu")
-            engine._object_sim = False
-            engine._object_model_label = f"{use_path} (admin set)"
-            logger.info(f"Admin set object model → {use_path}")
-        except Exception as e:
-            logger.error(f"ADMIN FAIL set-object-model: {e}")
-            raise HTTPException(500, f"Model load failed (architectural mismatch?): {e}")
+        success = await asyncio.to_thread(engine.reload_object_model, use_path)
+        if not success:
+            raise HTTPException(500, f"Background object model load failed for {use_path}")
+            
     return {"message": f"Object model set to {use_path}", "ready": True}
 
 
