@@ -87,11 +87,24 @@ async def _save_analysis(rd, itype):
 async def analyze_image(request: Request, file: UploadFile=File(...),
                         preprocessing_mode: str=Form("auto"), run_fusion: bool=Form(False),
                         latitude: Optional[float]=Form(None), longitude: Optional[float]=Form(None)):
-    import cv2, numpy as np
+    import cv2, numpy as np, asyncio
     engine = _get_engine(request)
-    frame  = cv2.imdecode(np.frombuffer(await file.read(), np.uint8), cv2.IMREAD_COLOR)
+    # Read file content safely
+    content = await file.read()
+    frame  = cv2.imdecode(np.frombuffer(content, np.uint8), cv2.IMREAD_COLOR)
     if frame is None: raise HTTPException(400,"Could not decode image")
-    rd = _result_to_dict(engine.analyze_frame(frame, frame_id=0, preprocessing_mode=preprocessing_mode, source_type="image"))
+    
+    # Offload heavy AI inference to a background thread to avoid blocking the event loop
+    # This prevents the server from hanging and causing 502/CORS errors during processing.
+    rd_raw = await asyncio.to_thread(
+        engine.analyze_frame, 
+        frame, 
+        frame_id=0, 
+        preprocessing_mode=preprocessing_mode, 
+        source_type="image"
+    )
+    rd = _result_to_dict(rd_raw)
+    
     rd["gps_lat"] = latitude
     rd["gps_lng"] = longitude
     if run_fusion: rd = _enrich_with_fusion(frame, rd, request)
@@ -382,8 +395,7 @@ async def analyze_video_stream(
     return StreamingResponse(
         _generate(),
         media_type="text/event-stream",
-        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no",
-                 "Access-Control-Allow-Origin": "*"},
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
 
 async def _sse_frames(engine, cap, max_frames=1800, prep="auto"):
@@ -416,7 +428,7 @@ async def stream_webcam(request: Request, device: int=Query(0), preprocessing_mo
     cap.set(cv2.CAP_PROP_FRAME_WIDTH,640); cap.set(cv2.CAP_PROP_FRAME_HEIGHT,480); cap.set(cv2.CAP_PROP_FPS,15)
     return StreamingResponse(_sse_frames(_get_engine(request),cap,1800,preprocessing_mode),
         media_type="text/event-stream",
-        headers={"Cache-Control":"no-cache","X-Accel-Buffering":"no","Access-Control-Allow-Origin":"*"})
+        headers={"Cache-Control":"no-cache","X-Accel-Buffering":"no"})
 
 @router.get("/stream/rtsp")
 async def stream_rtsp(request: Request, url: str=Query(...), duration: int=Query(60),
@@ -428,7 +440,7 @@ async def stream_rtsp(request: Request, url: str=Query(...), duration: int=Query
     max_f  = int(duration*(cap.get(cv2.CAP_PROP_FPS) or 25))
     return StreamingResponse(_sse_frames(_get_engine(request),cap,max_f,preprocessing_mode),
         media_type="text/event-stream",
-        headers={"Cache-Control":"no-cache","X-Accel-Buffering":"no","Access-Control-Allow-Origin":"*"})
+        headers={"Cache-Control":"no-cache","X-Accel-Buffering":"no"})
 
 class RtspBody(BaseModel):
     stream_url: str; duration_seconds: int=8; sample_rate: int=5
