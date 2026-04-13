@@ -511,6 +511,79 @@ class DetectionEngine:
             f"object={'REAL' if not self._object_sim else 'SIM'}"
         )
 
+    def reload_defect_model(self, model_path: str):
+        """Thread-safe and memory-conscious reload of the defect detection model."""
+        import gc
+        from pathlib import Path
+        try:
+            from ultralytics import YOLO
+            # 1. Clear existing model from memory
+            if self.model:
+                del self.model
+            gc.collect()
+            try:
+                import torch
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
+            except:
+                pass
+
+            # 2. Load new model
+            new_model = YOLO(model_path)
+            # 3. Offload to CPU if appropriate for stability, or keep on device
+            new_model.to(self.device)
+
+            # 4. Update class names
+            raw_names = new_model.names
+            self._defect_names = {i: n for i, n in enumerate(raw_names)} if isinstance(raw_names, list) else dict(raw_names)
+            
+            # 5. Swap
+            self.model = new_model
+            self._defect_sim = False
+            self._defect_model_label = f"best.pt ({Path(model_path).name})"
+            logger.info(f"✅ Defect model reloaded: {model_path}")
+            return True
+        except Exception as e:
+            logger.error(f"❌ Failed to reload defect model {model_path}: {e}")
+            self._defect_sim = True
+            self._defect_model_label = f"simulation (reload fail: {str(e)[:50]})"
+            return False
+
+    def reload_object_model(self, obj_src: str):
+        """Thread-safe and memory-conscious reload of the object detection model."""
+        import gc
+        from pathlib import Path
+        try:
+            from ultralytics import YOLO
+            # 1. Clear existing
+            if self.object_model:
+                del self.object_model
+            gc.collect()
+            try:
+                import torch
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
+            except:
+                pass
+
+            # 2. Load
+            new_obj = YOLO(obj_src)
+            new_obj.to(self.device)
+
+            # 3. Swap
+            self.object_model = new_obj
+            raw_names = self.object_model.names
+            self._object_names = {i: n for i, n in enumerate(raw_names)} if isinstance(raw_names, list) else dict(raw_names)
+            self._object_sim = False
+            self._object_model_label = f"yolov8n.pt ({obj_src})"
+            logger.info(f"✅ Object model reloaded: {obj_src}")
+            return True
+        except Exception as e:
+            logger.error(f"❌ Failed to reload object model {obj_src}: {e}")
+            self._object_sim = True
+            self._object_model_label = f"simulation (reload fail: {str(e)[:50]})"
+            return False
+
     # ── Main pipeline ──────────────────────────────────────────────────────────
 
     def analyze_frame(self, frame: np.ndarray, frame_id: int = 0, history=None,
