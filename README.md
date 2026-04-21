@@ -79,4 +79,4 @@
 
 ---
 
-Developed with ❤️ by the SNIGDHA & ROADAI Engineering Team.
+Developed with ❤️ by ROADAI Engineering Team.
